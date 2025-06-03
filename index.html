@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>互動式 Alveo U200 安裝指南</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Visualization & Content Choices: 
+        - Report Info: Hardware specifications (Power). Goal: Inform. Viz: Bar Chart (Chart.js). Interaction: Static visualization for clarity. Justification: A bar chart makes the 225W power budget and its sources (PCIe slot vs. auxiliary power) instantly understandable.
+        - Report Info: Installation steps (Hardware/Software). Goal: Guide. Presentation: Step-by-step cards with icons. Interaction: Code blocks with a "Copy" button. Justification: Simplifies execution of terminal commands and reduces typing errors.
+        - Report Info: System requirements. Goal: Organize/Inform. Presentation: Interactive checklists. Interaction: Users can click to mark items as complete. Justification: Provides a sense of progress and ensures all prerequisites are met before starting.
+        - Report Info: Troubleshooting section. Goal: Organize/Relationships. Presentation: Accordion list. Interaction: Search bar to filter problems and expandable sections. Justification: Allows users to quickly find solutions without reading through irrelevant issues.
+        - Report Info: Critical warnings (Power, Cooling, USB Maintenance Port). Goal: Inform/Warn. Presentation: High-contrast callout boxes. Interaction: Static but highly visible. Justification: Maximizes visibility for critical information to prevent hardware damage or installation issues.
+        - Report Info: Developer progress logs (FPGA開發進度報告.pptx - UDP tests, packet modification, IP issues, Vivado issues). Goal: Share practical experience/Guide. Presentation: Thematic subsections with code snippets (Verilog, shell commands), issue descriptions, and solutions/resources. Interaction: Code blocks with 'Copy' button. Justification: Provides concrete examples and troubleshooting insights from a real development scenario, complementing the installation guide with post-install application context. (Names and dates removed from this section as per user request).
+        - Library/Method: Chart.js for canvas-based charts, Tailwind CSS for layout and styling, Vanilla JS for all interactivity.
+    -->
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 300px;
+            max-height: 350px;
+        }
+        .nav-link.active {
+            background-color: #1e40af; /* Blue-800 */
+            color: white;
+        }
+        .nav-link:not(.active):hover {
+            background-color: #eef2ff; /* Indigo-50 */
+        }
+        .checklist-item.checked label {
+            text-decoration: line-through;
+            color: #9ca3af; /* Gray-400 */
+        }
+        .checklist-item.checked svg {
+            color: #22c55e; /* Green-500 */
+        }
+        .callout {
+            border-left-width: 4px;
+            padding: 1rem;
+            border-radius: 0.25rem;
+        }
+        .callout-warning {
+            background-color: #fefce8; /* Yellow-50 */
+            border-color: #facc15; /* Yellow-400 */
+            color: #a16207; /* Yellow-700 */
+        }
+        .callout-danger {
+            background-color: #fff1f2; /* Rose-50 */
+            border-color: #f43f5e; /* Rose-500 */
+            color: #be123c; /* Rose-700 */
+        }
+        .callout-info {
+            background-color: #eff6ff; /* Blue-50 */
+            border-color: #60a5fa; /* Blue-400 */
+            color: #1d4ed8; /* Blue-700 */
+        }
+        .code-block {
+            background-color: #1f2937; /* Gray-800 */
+            color: #f3f4f6; /* Gray-100 */
+            padding: 1rem;
+            border-radius: 0.375rem;
+            overflow-x: auto;
+        }
+        .code-block pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <div class="flex flex-col md:flex-row min-h-screen">
+        <aside class="w-full md:w-72 bg-white border-r border-slate-200 p-4 md:fixed md:h-full overflow-y-auto">
+            <h1 class="text-xl font-bold text-blue-900 mb-6">Alveo U200 指南</h1>
+            <nav id="main-nav" class="flex flex-col gap-1">
+                <a href="#start" class="nav-link text-slate-700 font-medium px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-8.707l-3-3a1 1 0 00-1.414 1.414L10.586 9H7a1 1 0 100 2h3.586l-1.293 1.293a1 1 0 101.414 1.414l3-3a1 1 0 000-1.414z" clip-rule="evenodd" /></svg>
+                    <span>開始之前</span>
+                </a>
+                <a href="#check" class="nav-link text-slate-700 font-medium px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" /></svg>
+                    <span>1. 安裝前檢查</span>
+                </a>
+                <a href="#hardware" class="nav-link text-slate-700 font-medium px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" /></svg>
+                    <span>2. 硬體安裝</span>
+                </a>
+                <a href="#software" class="nav-link text-slate-700 font-medium px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M2 5a2 2 0 012-2h12a2 2 0 012 2v10a2 2 0 01-2 2H4a2 2 0 01-2-2V5zm3.293 2.293a1 1 0 011.414 0L9 9.586l2.293-2.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" /></svg>
+                    <span>3. 軟體設定</span>
+                </a>
+                <a href="#verify" class="nav-link text-slate-700 font-medium px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm3.733 8.355a1 1 0 10-1.414-1.414L9 11.586l-1.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l3-3z" clip-rule="evenodd" /></svg>
+                    <span>4. 安裝後驗證</span>
+                </a>
+                <a href="#troubleshoot" class="nav-link text-slate-700 font-medium px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" /></svg>
+                    <span>故障排除</span>
+                </a>
+                 <a href="#dev-case-study" class="nav-link text-slate-700 font-medium px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M12.316 3.051a1 1 0 01.633 1.265l-4 12a1 1 0 01-1.898-.632l4-12a1 1 0 011.265-.633zM5.707 6.293a1 1 0 010 1.414L3.414 10l2.293 2.293a1 1 0 11-1.414 1.414l-3-3a1 1 0 010-1.414l3-3a1 1 0 011.414 0zm8.586 0a1 1 0 011.414 0l3 3a1 1 0 010 1.414l-3 3a1 1 0 11-1.414-1.414L16.586 10l-2.293-2.293a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                    <span>開發案例</span>
+                </a>
+                <a href="#next" class="nav-link text-slate-700 font-medium px-3 py-2 rounded-lg transition-colors duration-200 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" /></svg>
+                    <span>後續步驟</span>
+                </a>
+            </nav>
+        </aside>
+
+        <main id="main-content" class="flex-1 md:ml-72 p-4 sm:p-6 md:p-8">
+            <section id="start" class="content-section space-y-6">
+                <h2 class="text-3xl font-bold text-slate-900 border-b pb-2">開始之前：Alveo U200 簡介</h2>
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <p class="text-lg leading-relaxed">Xilinx (現為 AMD 的一部分) Alveo™ U200 是一款專為資料中心設計的高效能加速卡，能有效加速機器學習、影片轉碼、資料庫分析等運算密集型應用。其核心採用 16nm UltraScale™ FPGA 技術，提供卓越的效能與適應性。</p>
+                </div>
+                <div class="callout callout-warning">
+                    <h3 class="font-bold text-lg mb-2">重要提示：關於新設計的建議</h3>
+                    <p>雖然 Alveo U200 仍受支援，但對於所有<strong class="font-semibold">新的設計項目</strong>，AMD 官方建議優先考慮採用更新的 <strong class="font-semibold">Alveo V80</strong> 運算加速卡。這表示 U200 已是成熟產品，未來的功能增強重心可能會傾向於更新的卡型。若有疑問，建議直接聯繫 AMD 產品專家。</p>
+                </div>
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h3 class="font-bold text-lg mb-2">本指南結構</h3>
+                    <p class="leading-relaxed">本互動指南將引導您完成從安裝前的準備工作、硬體與軟體安裝、到安裝後驗證及故障排除的完整流程。我們整合了官方文件的關鍵資訊，並強調了重要警告與最佳實踐，旨在讓您的安裝過程更加順暢。此外，本指南還包含一份開發案例，分享實際開發中的經驗與挑戰。</p>
+                </div>
+            </section>
+
+            <section id="check" class="content-section hidden space-y-6">
+                <h2 class="text-3xl font-bold text-slate-900 border-b pb-2">1. 安裝前檢查清單</h2>
+                <p class="text-lg">在開始安裝前，請逐一確認您的系統是否滿足所有需求。使用下方的清單來追蹤您的準備進度。</p>
+                
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-lg shadow-sm space-y-4">
+                        <h3 class="text-xl font-bold">系統需求</h3>
+                        <div class="checklist-item flex items-start gap-3 p-2 rounded-md transition-colors hover:bg-slate-50">
+                            <input type="checkbox" class="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <div class="flex-1">
+                                <label class="font-medium">作業系統相容</label>
+                                <p class="text-sm text-slate-500">RHEL/CentOS 7.x/8.x/9.x 或 Ubuntu 18.04/20.04/22.04 (請依據您的 XRT 版本查閱官方文件)。</p>
+                            </div>
+                        </div>
+                         <div class="checklist-item flex items-start gap-3 p-2 rounded-md transition-colors hover:bg-slate-50">
+                            <input type="checkbox" class="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <div class="flex-1">
+                                <label class="font-medium">PCIe Gen3 x16 插槽</label>
+                                <p class="text-sm text-slate-500">主機板需有至少一個可用的 PCIe Gen3 x16 插槽。</p>
+                            </div>
+                        </div>
+                        <div class="checklist-item flex items-start gap-3 p-2 rounded-md transition-colors hover:bg-slate-50">
+                            <input type="checkbox" class="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <div class="flex-1">
+                                <label class="font-medium">足夠的電源供應 (PSU)</label>
+                                <p class="text-sm text-slate-500">PSU 需能提供最高 225W 功率，並具備一個 8-pin PCIe 輔助電源接頭。</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg shadow-sm space-y-4">
+                        <h3 class="text-xl font-bold">散熱與氣流</h3>
+                        <div class="checklist-item flex items-start gap-3 p-2 rounded-md transition-colors hover:bg-slate-50">
+                            <input type="checkbox" class="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <div class="flex-1">
+                                <label class="font-medium">確認散熱類型</label>
+                                <p class="text-sm text-slate-500">您的卡是主動散熱 (自帶風扇) 還是被動散熱？</p>
+                            </div>
+                        </div>
+                        <div class="callout callout-danger">
+                            <p class="font-bold">極重要警告：被動散熱卡<strong class="font-semibold">僅能</strong>安裝在有足夠強制氣流的<strong class="font-semibold">伺服器</strong>中，嚴禁安裝於標準工作站，否則極易過熱損壞。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid md:grid-cols-2 gap-6">
+                    <div class="bg-white p-6 rounded-lg shadow-sm">
+                        <h3 class="text-xl font-bold mb-4">U200 硬體規格概覽</h3>
+                        <table class="w-full text-left text-sm">
+                            <thead class="bg-slate-100">
+                                <tr>
+                                    <th class="p-2 rounded-tl-lg">特性</th>
+                                    <th class="p-2 rounded-tr-lg">規格</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr class="border-b"><td class="p-2 font-medium">查找表 (LUTs)</td><td class="p-2">892K</td></tr>
+                                <tr class="border-b"><td class="p-2 font-medium">DDR4 容量</td><td class="p-2">64 GB</td></tr>
+                                <tr class="border-b"><td class="p-2 font-medium">DDR4 頻寬</td><td class="p-2">77 GB/s</td></tr>
+                                <tr class="border-b"><td class="p-2 font-medium">內部 SRAM 容量</td><td class="p-2">35 MB</td></tr>
+                                <tr class="border-b"><td class="p-2 font-medium">最大總功耗</td><td class="p-2">225W</td></tr>
+                                <tr><td class="p-2 font-medium rounded-bl-lg">網路接口</td><td class="p-2 rounded-br-lg">2x QSFP28 (100GbE)</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                     <div class="bg-white p-6 rounded-lg shadow-sm">
+                        <h3 class="text-xl font-bold mb-4">U200 功耗來源 (最高 225W)</h3>
+                        <div class="chart-container">
+                            <canvas id="powerChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                 <div class="bg-white p-6 rounded-lg shadow-sm space-y-4">
+                    <h3 class="text-xl font-bold">所需軟體與驅動程式</h3>
+                    <p>請至 AMD 官網下載與您的 OS 和工具版本匹配的軟體包。版本不匹配是安裝失敗的常見原因。</p>
+                    <div class="checklist-item flex items-start gap-3 p-2 rounded-md transition-colors hover:bg-slate-50">
+                        <input type="checkbox" class="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <div class="flex-1"><label class="font-medium">Xilinx Runtime (XRT)</label></div>
+                    </div>
+                    <div class="checklist-item flex items-start gap-3 p-2 rounded-md transition-colors hover:bg-slate-50">
+                        <input type="checkbox" class="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <div class="flex-1"><label class="font-medium">部署平台 (Deployment Platform / Shell)</label></div>
+                    </div>
+                    <div class="checklist-item flex items-start gap-3 p-2 rounded-md transition-colors hover:bg-slate-50">
+                        <input type="checkbox" class="mt-1 h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                        <div class="flex-1">
+                            <label class="font-medium">(可選) 開發工具</label>
+                             <p class="text-sm text-slate-500">Vitis 統一軟體平台 或 Vivado 設計套件。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="hardware" class="content-section hidden space-y-6">
+                <h2 class="text-3xl font-bold text-slate-900 border-b pb-2">2. 硬體安裝步驟</h2>
+                <div class="space-y-8">
+                    <div class="flex gap-4">
+                        <div class="flex flex-col items-center">
+                            <div class="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold">1</div>
+                            <div class="h-full border-l-2 border-dashed border-slate-300"></div>
+                        </div>
+                        <div class="flex-1 pb-8">
+                            <h3 class="text-xl font-bold mb-2">安全注意事項</h3>
+                            <div class="callout callout-warning">
+                                <ul class="list-disc list-inside space-y-1">
+                                    <li><strong>斷開主機電源：</strong> 安裝前務必關閉主機並拔掉電源線。</li>
+                                    <li><strong>靜電 (ESD) 防護：</strong> 請佩戴防靜電腕帶，或在接觸卡前觸摸機箱金屬部分以釋放靜電。</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                     <div class="flex gap-4">
+                        <div class="flex flex-col items-center">
+                            <div class="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold">2</div>
+                            <div class="h-full border-l-2 border-dashed border-slate-300"></div>
+                        </div>
+                        <div class="flex-1 pb-8">
+                            <h3 class="text-xl font-bold mb-2">安裝 Alveo U200 至 PCIe 插槽</h3>
+                            <ol class="list-decimal list-inside space-y-2 bg-white p-4 rounded-lg shadow-sm">
+                                <li>打開電腦機箱。</li>
+                                <li>選擇一個 PCIe Gen3 x16 插槽，並移除對應的機箱背部檔板 (可能需移除 2 個)。</li>
+                                <li>將 Alveo 卡垂直向下均勻用力，完全插入插槽中。</li>
+                                <li>使用螺絲將卡的金屬擋板固定在機箱上。</li>
+                            </ol>
+                        </div>
+                    </div>
+                     <div class="flex gap-4">
+                        <div class="flex flex-col items-center">
+                             <div class="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold">3</div>
+                             <div class="h-full border-l-2 border-dashed border-slate-300"></div>
+                        </div>
+                        <div class="flex-1 pb-8">
+                            <h3 class="text-xl font-bold mb-2">連接輔助電源</h3>
+                             <p class="mb-4">找到卡上的 8-pin PCIe 輔助電源接口，並連接來自 PSU 的 8-pin (或 6+2 pin) PCIe 電源線。</p>
+                             <div class="callout callout-danger">
+                                <h4 class="font-bold text-lg mb-2">極重要警告：電源線不相容！</h4>
+                                <p>Alveo 加速卡<strong class="font-semibold">不相容</strong>於 ATX12V / EPS12V 電源 (通常用於 CPU 供電)。<strong class="font-semibold">切勿</strong>嘗試將 CPU 電源線連接到 Alveo 卡，這樣做<strong class="font-semibold">必定會損壞卡並使保修失效</strong>。</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex gap-4">
+                        <div class="flex flex-col items-center">
+                             <div class="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold">4</div>
+                             <div class="h-full border-l-2 border-dashed border-slate-300"></div>
+                        </div>
+                        <div class="flex-1 pb-8">
+                            <h3 class="text-xl font-bold mb-2">關於 USB 維護端口的說明</h3>
+                             <div class="callout callout-info">
+                                <h4 class="font-bold text-lg mb-2">Micro-USB 維護端口</h4>
+                                <ul class="list-disc list-inside space-y-1">
+                                    <li>Alveo U200 卡上通常配有一個 Micro-USB 連接埠。此連接埠主要用於<strong class="font-semibold">進階診斷、JTAG 除錯或特定的恢復程序</strong>，通常在 AMD/Xilinx 技術支援的指導下使用。</li>
+                                    <li>在<strong class="font-semibold">標準安裝、日常操作或透過 `xbmgmt` 進行固件更新</strong>時，<strong class="font-semibold">不應連接</strong>此 USB 埠到主機。</li>
+                                    <li><strong class="font-semibold text-red-600">注意：</strong>如「故障排除」章節所述，在某些情況下，開機時若此 USB 埠已連接，可能會干擾 PCIe 裝置的正常枚舉，導致卡無法被系統識別。</li>
+                                    <li>僅當特定的官方恢復或除錯指南<strong class="font-semibold">明確指示</strong>需要使用此 USB 連接埠時（例如，透過 JTAG 進行底層燒錄），才應按照指示連接和使用。標準的固件更新流程不依賴此 USB 連接。</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                     <div class="flex gap-4">
+                        <div class="flex flex-col items-center">
+                             <div class="bg-blue-600 text-white rounded-full h-8 w-8 flex items-center justify-center font-bold">5</div>
+                        </div>
+                        <div class="flex-1 pb-8">
+                            <h3 class="text-xl font-bold mb-2">確保正確的氣流</h3>
+                             <p>正確的散熱對 Alveo U200 的穩定運行至關重要。請參考「安裝前檢查」章節中關於散熱和氣流的要求，並確保您的安裝環境符合標準。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <section id="software" class="content-section hidden space-y-6">
+                <h2 class="text-3xl font-bold text-slate-900 border-b pb-2">3. 軟體安裝與設定</h2>
+                <div class="space-y-4">
+                    <h3 class="text-xl font-bold">1. 安裝 Xilinx Runtime (XRT)</h3>
+                    <p>XRT 是 Alveo 卡運行的核心。安裝需要 root 或 sudo 權限。請注意，某些 XRT 版本對 Linux 內核版本有嚴格要求，安裝前請務必查閱官方文件。</p>
+                    <div class="bg-white rounded-lg shadow-sm">
+                        <div class="p-4">
+                            <p class="font-medium mb-2">Ubuntu 系統:</p>
+                            <div class="code-block">
+                                <div class="flex justify-between items-start">
+                                    <pre><code>sudo apt install ./&lt;xrt_package_name&gt;.deb</code></pre>
+                                    <button class="copy-btn bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-1 px-2 rounded">複製</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-4 border-t border-slate-200">
+                             <p class="font-medium mb-2">RHEL/CentOS 系統:</p>
+                            <div class="code-block">
+                                <div class="flex justify-between items-start">
+                                    <pre><code>sudo yum install ./&lt;xrt_package_name&gt;.rpm</code></pre>
+                                    <button class="copy-btn bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-1 px-2 rounded">複製</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="p-4 border-t border-slate-200">
+                             <p class="font-medium mb-2">設定 XRT 環境 (加入 .bashrc):</p>
+                            <div class="code-block">
+                                <div class="flex justify-between items-start">
+                                    <pre><code>source /opt/xilinx/xrt/setup.sh</code></pre>
+                                    <button class="copy-btn bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-1 px-2 rounded">複製</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <h3 class="text-xl font-bold">2. 安裝部署平台與燒錄固件</h3>
+                    <p>部署平台包含了 Alveo 卡運行的必要固件。</p>
+                     <div class="bg-white rounded-lg shadow-sm p-4 space-y-4">
+                        <p>首先，安裝與 XRT 版本匹配的部署平台軟體包 (通常是 .deb 或 .rpm)。</p>
+                        <div>
+                            <p class="font-medium mb-2">然後，燒錄固件 (將 `<BDF>` 換成您的卡號):</p>
+                            <div class="code-block">
+                                <div class="flex justify-between items-start">
+                                    <pre><code>sudo xbmgmt program --base --device &lt;BDF&gt;</code></pre>
+                                    <button class="copy-btn bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-1 px-2 rounded">複製</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="callout callout-danger">
+                            <p class="font-bold">燒錄固件後，<strong class="font-semibold">必須</strong>對主機系統進行一次完整的<strong class="font-semibold">冷重啟</strong> (完全關機後再開機)，以使新固件生效。</p>
+                        </div>
+                    </div>
+                </div>
+                 <div class="space-y-4">
+                    <h3 class="text-xl font-bold">3. (可選) 安裝開發工具</h3>
+                    <p>如果您計劃在 Alveo U200 上開發應用，請安裝 Vitis 或 Vivado，並根據官方文件安裝對應的開發平台包和板級支援檔案。</p>
+                </div>
+            </section>
+            
+            <section id="verify" class="content-section hidden space-y-6">
+                 <h2 class="text-3xl font-bold text-slate-900 border-b pb-2">4. 安裝後驗證</h2>
+                 <p>完成安裝後，使用以下命令驗證卡是否被正確識別且功能正常。</p>
+                 <div class="space-y-4">
+                    <h3 class="text-xl font-bold">1. 確認系統識別加速卡</h3>
+                    <p>檢查操作系統是否在 PCIe 總線上檢測到 Alveo 卡 (10ee 是 Xilinx 的供應商 ID)。</p>
+                    <div class="code-block">
+                        <div class="flex justify-between items-start">
+                            <pre><code>sudo lspci -vd 10ee:</code></pre>
+                            <button class="copy-btn bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-1 px-2 rounded">複製</button>
+                        </div>
+                    </div>
+                 </div>
+                 <div class="space-y-4">
+                    <h3 class="text-xl font-bold">2. 使用 `xbmgmt` 檢查卡狀態</h3>
+                    <p>`xbmgmt` 用於管理功能，如查詢固件版本。需要 root 權限。</p>
+                    <div class="code-block">
+                        <div class="flex justify-between items-start">
+                            <pre><code>sudo xbmgmt examine</code></pre>
+                            <button class="copy-btn bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-1 px-2 rounded">複製</button>
+                        </div>
+                    </div>
+                    <p class="text-sm text-slate-600">此命令會列出所有卡、BDF 號、平台版本等資訊。</p>
+                 </div>
+                  <div class="space-y-4">
+                    <h3 class="text-xl font-bold">3. 使用 `xbutil` 運行驗證測試</h3>
+                    <p>`xbutil` 用於與用戶功能交互，如運行診斷測試。這是確認卡功能是否正常的關鍵步驟。</p>
+                    <div class="code-block">
+                        <div class="flex justify-between items-start">
+                            <pre><code>xbutil validate</code></pre>
+                            <button class="copy-btn bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-1 px-2 rounded">複製</button>
+                        </div>
+                    </div>
+                    <p class="text-sm text-slate-600">如果所有測試通過，則表明卡的基本硬體和驅動層面配置正確。</p>
+                 </div>
+            </section>
+            
+            <section id="troubleshoot" class="content-section hidden space-y-6">
+                <h2 class="text-3xl font-bold text-slate-900 border-b pb-2">故障排除</h2>
+                <div class="mb-4">
+                    <input type="text" id="troubleshoot-search" placeholder="&#x1F50D; 搜尋問題..." class="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+                </div>
+                <div id="troubleshoot-list" class="space-y-2">
+                    <div class="troubleshoot-item bg-white rounded-lg shadow-sm">
+                        <button class="w-full text-left p-4 font-medium text-lg flex justify-between items-center">
+                            <span>硬體無法識別 (`lspci` 不顯示)</span>
+                            <svg class="w-5 h-5 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                        </button>
+                        <div class="troubleshoot-content hidden px-4 pb-4 text-slate-600 space-y-2">
+                            <p><strong>可能原因：</strong>卡未插好、PCIe 插槽問題、BIOS 設定、輔助電源未接、<strong class="font-semibold">USB 維護端口已連接</strong> (可能干擾 PCIe 枚舉)。</p>
+                            <p><strong>建議解決方案：</strong>關機後重新拔插卡和輔助電源；嘗試不同 PCIe 插槽；檢查/更新 BIOS 設定；<strong class="font-semibold">確保 USB 維護端口未連接</strong> (除非特定除錯流程指示)；進行冷啟動。</p>
+                        </div>
+                    </div>
+                    <div class="troubleshoot-item bg-white rounded-lg shadow-sm">
+                        <button class="w-full text-left p-4 font-medium text-lg flex justify-between items-center">
+                             <span>電源或散熱問題 (系統崩潰或卡關閉)</span>
+                             <svg class="w-5 h-5 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                        </button>
+                        <div class="troubleshoot-content hidden px-4 pb-4 text-slate-600 space-y-2">
+                            <p><strong>可能原因：</strong>卡過熱、輔助電源未接或供電不足。</p>
+                            <p><strong>建議解決方案：</strong>使用 `xbutil examine` 監控溫度；確保主機氣流符合規格 (特別是被動散熱卡)；檢查所有電源線連接。</p>
+                        </div>
+                    </div>
+                     <div class="troubleshoot-item bg-white rounded-lg shadow-sm">
+                        <button class="w-full text-left p-4 font-medium text-lg flex justify-between items-center">
+                             <span>軟體安裝錯誤 (XRT/平台)</span>
+                             <svg class="w-5 h-5 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                        </button>
+                        <div class="troubleshoot-content hidden px-4 pb-4 text-slate-600 space-y-2">
+                             <p><strong>可能原因：</strong>軟體版本不相容 (XRT, 平台, OS, 內核版本)、缺少系統依賴庫。</p>
+                             <p><strong>建議解決方案：</strong>嚴格按照官方文件推薦的版本組合下載軟體；確保已安裝 `dkms`, `kernel-devel` 等必要套件；注意內核版本是否符合 XRT 要求。</p>
+                        </div>
+                    </div>
+                    <div class="troubleshoot-item bg-white rounded-lg shadow-sm">
+                        <button class="w-full text-left p-4 font-medium text-lg flex justify-between items-center">
+                             <span>`xbutil validate` 失敗</span>
+                             <svg class="w-5 h-5 transition-transform" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
+                        </button>
+                        <div class="troubleshoot-content hidden px-4 pb-4 text-slate-600 space-y-2">
+                             <p><strong>可能原因：</strong>硬體問題、固件問題、驅動問題。</p>
+                             <p><strong>建議解決方案：</strong>檢查 `dmesg` 系統日誌；嘗試重新燒錄平台固件並冷重啟；如果持續失敗，可能需要聯繫技術支援。</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="dev-case-study" class="content-section hidden space-y-6">
+                <h2 class="text-3xl font-bold text-slate-900 border-b pb-2">開發實戰案例：U200 網路應用筆記</h2>
+                <p class="text-lg">本章節節錄自一份 FPGA 開發進度報告，記錄了在 Alveo U200 上進行網路相關應用開發時遇到的實際問題與解決過程，希望能為其他開發者提供參考。</p>
+
+                <div class="bg-white p-6 rounded-lg shadow-sm space-y-4">
+                    <h3 class="text-xl font-bold">主題一：UDP 網路測試與校驗和問題</h3>
+                    <p>在進行 UDP 功能測試時，觀察到封包接收正常，但存在校驗和錯誤的問題。</p>
+                    <h4 class="font-semibold mt-2">測試指令：</h4>
+                    <p>發送端 (Netcat):</p>
+                    <div class="code-block">
+                        <div class="flex justify-between items-start">
+                            <pre><code>echo 'hello FPGA' | nc -u -w1 192.168.108.128 1234</code></pre>
+                            <button class="copy-btn bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-1 px-2 rounded">複製</button>
+                        </div>
+                    </div>
+                    <p class="mt-2">接收端監聽 (tcpdump):</p>
+                    <div class="code-block">
+                         <div class="flex justify-between items-start">
+                            <pre><code>sudo tcpdump -i enp0s31f6 udp and port 1234 -vv</code></pre>
+                            <button class="copy-btn bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-1 px-2 rounded">複製</button>
+                        </div>
+                    </div>
+                    <p class="mt-2">連接測試:</p>
+                    <div class="code-block">
+                        <div class="flex justify-between items-start">
+                            <pre><code>nc -zu 192.168.108.128 1234</code></pre>
+                            <button class="copy-btn bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-1 px-2 rounded">複製</button>
+                        </div>
+                    </div>
+                    <p class="mt-2"><strong>觀察結果：</strong>tcpdump 顯示封包已接收，但提示 "bad udp cksum"。儘管如此，`nc -zu` 連接測試顯示成功。</p>
+                    <h4 class="font-semibold mt-2">參考資源：</h4>
+                    <p>提及一個乙太網路 FPGA 教學影片和相關的開源 IP 庫：</p>
+                    <ul class="list-disc list-inside ml-4">
+                        <li>HDLForBeginners Toolbox: <a href="https://github.com/HDLForBeginners/Toolbox/tree/main" target="_blank" class="text-blue-600 hover:underline">https://github.com/HDLForBeginners/Toolbox/tree/main</a> (註：報告中提到直接導入仍有問題)</li>
+                    </ul>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-sm space-y-4">
+                    <h3 class="text-xl font-bold">主題二：封包修改器實作</h3>
+                    <p>為測試封包處理路徑，實作了一個簡單的 Verilog 封包修改器模組，目標是翻轉封包資料中的一個位元。</p>
+                    <h4 class="font-semibold mt-2">Verilog 程式碼 (`packet_modifier`):</h4>
+                    <div class="code-block">
+                        <div class="flex justify-between items-start">
+                        <pre><code class="language-verilog">module packet_modifier #(
+    parameter DATA_WIDTH = 64,
+    parameter BIT_POS = 7 // 想翻轉的 bit 自行改 0-63
+) (
+    input wire clk,
+    input wire rst,
+
+    // AXI-Stream slave: 來自 FIFO
+    input wire [DATA_WIDTH-1:0] s_axis_tdata,
+    input wire [DATA_WIDTH/8-1:0] s_axis_tkeep,
+    input wire s_axis_tvalid,
+    output wire s_axis_tready,
+    input wire s_axis_tlast,
+    input wire s_axis_tuser,
+
+    // AXI-Stream master: 回給 UDP stack
+    output reg [DATA_WIDTH-1:0] m_axis_tdata,
+    output reg [DATA_WIDTH/8-1:0] m_axis_tkeep,
+    output reg m_axis_tvalid,
+    input wire m_axis_tready,
+    output reg m_axis_tlast,
+    output reg m_axis_tuser
+);
+
+localparam [DATA_WIDTH-1:0] BIT_MASK = (1'b1) << BIT_POS;
+
+reg first_word_done = 1'b0;
+assign s_axis_tready = m_axis_tready;
+
+always @(posedge clk) begin
+    if (rst) begin
+        m_axis_tvalid <= 1'b0;
+        first_word_done <= 1'b0;
+    end else if (s_axis_tvalid && s_axis_tready) begin
+        // 資料路徑
+        m_axis_tdata <= first_word_done ? s_axis_tdata : (s_axis_tdata | BIT_MASK);
+        first_word_done <= 1'b1;
+        m_axis_tkeep <= s_axis_tkeep;
+        m_axis_tlast <= s_axis_tlast;
+        m_axis_tuser <= s_axis_tuser;
+        m_axis_tvalid <= 1'b1;
+
+        // 換到新封包時重置
+        if (s_axis_tlast) begin
+            first_word_done <= 1'b0;
+        end
+    end else if (m_axis_tready) begin
+        m_axis_tvalid <= 1'b0;
+    end
+end
+
+endmodule</code></pre>
+                            <button class="copy-btn bg-slate-600 hover:bg-slate-500 text-white text-xs font-bold py-1 px-2 rounded">複製</button>
+                        </div>
+                    </div>
+                    <h4 class="font-semibold mt-2">遇到的問題：</h4>
+                    <p>測試時發現，修改器似乎只抓取並修改了封包的頭部 (Packet Header)，未如預期般作用於整個封包。報告中附帶的 `orig` 和 `recv` 資料對比 (此處未列出圖片) 支持此觀察。這引發了對先前測試正確性的懷疑。</p>
+                    <p class="mt-2"><strong>尋找修改點的思考：</strong> 開發者推測封包修改的適當位置可能在 `udp_payload_fifo` 模組中，並計劃在此處加入修改器進行測試。</p>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-sm space-y-4">
+                    <h3 class="text-xl font-bold">主題三：IP 授權問題與開源方案</h3>
+                    <p>開發過程中遇到部分必要的 IP 核心需要授權，促使尋找開源替代方案。</p>
+                    <h4 class="font-semibold mt-2">解決方案探索：</h4>
+                    <p>LiteX 專案被認為是一個潛在的解決方案，它提供了多種開源的、功能類似的 IP 核心。</p>
+                    <ul class="list-disc list-inside ml-4">
+                        <li>LiteX: <a href="https://github.com/enjoy-digital/litex" target="_blank" class="text-blue-600 hover:underline">https://github.com/enjoy-digital/litex</a></li>
+                    </ul>
+                    <p class="mt-2">報告中包含 GTHChannelPLL 的 ASCII 圖示範例，展示 LiteX 提供的 IP 文檔風格：</p>
+                    <div class="code-block">
+                        <pre>
+GTHChannelPLL
+=============
+
+overview:
+
+      +-------------------------------------------+
+      |                                           |
+      |      +-----+  +-----------------------+  |
+      |      |     |  | Phase Frequency Detector|  |
+CLKIN +----->| /M  +->| Charge Pump           +-> VCO +-----> CLKOUT
+      |      |     |  | Loop Filter           |  |    |
+      |      +-----+  +-----------------------+  |    |
+      |         ^                                |    |
+      |         |                                |    |
+      |         +-----------+     +-----------+  |    |
+      |                     |     |           |  |    |
+      |      +-----+        +-----+-----+     +-----+  |
+      |      | /N2 |&lt;-------------| /N1 |&lt;-----------+  |
+      |      +-----+        +-----+-----+     +-----+  |
+      |                                           |
+      +-------------------------------------------+
+
+      CLKOUT +-> 2/D +-> LINERATE
+
+config:
+
+CLKIN     = 156.25MHz
+CLKOUT    = CLKIN x (N1 x N2) / M = 156.25MHz x (4 x 4) / 1
+          = 2.5GHz
+LINERATE  = CLKOUT x 2 / D = 2.5GHz x 2 / 4
+          = 1.25GHz
+                        </pre>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-lg shadow-sm space-y-4">
+                    <h3 class="text-xl font-bold">主題四：Vivado 時序問題與開發策略調整</h3>
+                    <p>在使用 Vivado 進行設計實現時，遇到了時序違規 (Methodology Violations) 的問題，特別是與時脈相關的警告。</p>
+                    <h4 class="font-semibold mt-2">問題描述：</h4>
+                    <p>當使用來自 <a href="https://github.com/alexforencich/verilog-ethernet/tree/master/example/Alveo/fpga_25g" target="_blank" class="text-blue-600 hover:underline">alexforencich/verilog-ethernet</a> 的範例程式碼時，Vivado 報告了多個嚴重警告 (Critical Warnings)，主要內容為 "The clock pin ... is not reached by a timing clock"。這類問題通常表示設計中的某些同步元件沒有被正確的時脈訊號驅動，可能導致功能錯誤或不穩定。</p>
+                    
+                    <h4 class="font-semibold mt-2">開發策略調整：</h4>
+                    <p>由於在 Top-Down 設計方法中遇到較多細節問題和頻率相關的困擾，開發者決定轉向 Bottom-Up 的方式，逐一測試元件，以期對 U200 有更完整的理解。</p>
+                    <h4 class="font-semibold mt-2">計劃嘗試的簡化方案與範例：</h4>
+                    <ul class="list-disc list-inside ml-4">
+                        <li>Xilinx xup_vitis_network_example: <a href="https://github.com/Xilinx/xup_vitis_network_example" target="_blank" class="text-blue-600 hover:underline">https://github.com/Xilinx/xup_vitis_network_example</a> (註：報告中提到執行 Python Notebook 時遇到 'underscore_attrs_are_private' 錯誤)</li>
+                        <li>Numato Gigabit Ethernet Example: <a href="https://numato.com/kb/gigabit-ethernet-example-design-using-vivado-and-vitis-for-tityracore-d200/" target="_blank" class="text-blue-600 hover:underline">https://numato.com/kb/gigabit-ethernet-example-design-using-vivado-and-vitis-for-tityracore-d200/</a> (待測試)</li>
+                    </ul>
+                </div>
+            </section>
+            
+            <section id="next" class="content-section hidden space-y-6">
+                <h2 class="text-3xl font-bold text-slate-900 border-b pb-2">後續步驟：進階開發</h2>
+                <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h3 class="font-bold text-lg mb-2">安裝總結</h3>
+                    <p class="leading-relaxed">成功安裝 Alveo U200 的關鍵在於：周密的準備、謹慎的硬體操作、精確的軟體配置，以及徹底的安裝後驗證。正確安裝的 U200 仍能為其目標應用提供強大的加速能力。</p>
+                </div>
+                 <div class="bg-white p-6 rounded-lg shadow-sm">
+                    <h3 class="font-bold text-lg mb-2">進階開發資源指引</h3>
+                    <p class="leading-relaxed">一旦 Alveo U200 成功安裝並通過驗證，您即可開始進行應用程式的開發或部署。建議您查閱以下資源：</p>
+                    <ul class="list-disc list-inside mt-4 space-y-2 text-blue-700">
+                        <li><a href="#" class="hover:underline">Vitis 統一軟體平台文檔與教學</a></li>
+                        <li><a href="#" class="hover:underline">Vivado 設計套件資源 (若適用)</a></li>
+                        <li><a href="#" class="hover:underline">AMD Alveo 開發者專區與支援</a></li>
+                        <li><a href="#" class="hover:underline">Xilinx (AMD) 社群與論壇</a></li>
+                    </ul>
+                </div>
+            </section>
+        </main>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const navLinks = document.querySelectorAll('.nav-link');
+    const contentSections = document.querySelectorAll('.content-section');
+    const copyButtons = document.querySelectorAll('.copy-btn');
+    const checklistItems = document.querySelectorAll('.checklist-item');
+    const troubleshootItems = document.querySelectorAll('.troubleshoot-item');
+    const troubleshootSearch = document.getElementById('troubleshoot-search');
+
+    function updateContent(hash) {
+        hash = hash || window.location.hash || '#start';
+        
+        navLinks.forEach(link => {
+            if (link.getAttribute('href') === hash) {
+                link.classList.add('active');
+            } else {
+                link.classList.remove('active');
+            }
+        });
+
+        contentSections.forEach(section => {
+            if ('#' + section.id === hash) {
+                section.classList.remove('hidden');
+            } else {
+                section.classList.add('hidden');
+            }
+        });
+        window.scrollTo(0, 0);
+    }
+
+    navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            const hash = link.getAttribute('href');
+            try {
+                history.pushState(null, null, hash);
+            } catch (error) {
+                 console.warn("history.pushState failed, possibly due to sandboxing. Falling back to location.hash update.");
+                 window.location.hash = hash;
+            }
+            updateContent(hash);
+        });
+    });
+
+    window.addEventListener('popstate', () => {
+        updateContent(window.location.hash);
+    });
+    
+    updateContent(window.location.hash || '#start');
+
+
+    copyButtons.forEach(button => {
+        button.addEventListener('click', (e) => {
+            const codeBlock = e.target.closest('.code-block');
+            const preElement = codeBlock.querySelector('pre');
+            let codeToCopy = '';
+            if (preElement) {
+                 // Try to get text from <code> inside <pre> first
+                const codeElement = preElement.querySelector('code');
+                if (codeElement) {
+                    codeToCopy = codeElement.innerText;
+                } else {
+                    // Fallback to <pre> directly if no <code>
+                    codeToCopy = preElement.innerText;
+                }
+            }
+
+            const originalText = button.innerText;
+            
+            if (!navigator.clipboard) {
+                try {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = codeToCopy;
+                    textarea.style.position = 'fixed'; 
+                    textarea.style.opacity = 0;
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+
+                    button.innerText = '已複製!';
+                    button.classList.remove('bg-slate-600', 'hover:bg-slate-500');
+                    button.classList.add('bg-green-500');
+                    setTimeout(() => {
+                        button.innerText = originalText;
+                        button.classList.remove('bg-green-500');
+                        button.classList.add('bg-slate-600', 'hover:bg-slate-500');
+                    }, 2000);
+                } catch (err) {
+                    console.error('Fallback copy failed: ', err);
+                    button.innerText = '失敗';
+                     setTimeout(() => {
+                        button.innerText = originalText;
+                    }, 2000);
+                }
+                return;
+            }
+
+            navigator.clipboard.writeText(codeToCopy).then(() => {
+                button.innerText = '已複製!';
+                button.classList.remove('bg-slate-600', 'hover:bg-slate-500');
+                button.classList.add('bg-green-500');
+                setTimeout(() => {
+                    button.innerText = originalText;
+                    button.classList.remove('bg-green-500');
+                    button.classList.add('bg-slate-600', 'hover:bg-slate-500');
+                }, 2000);
+            }).catch(err => {
+                console.error('Async copy failed: ', err);
+                button.innerText = '失敗';
+                setTimeout(() => {
+                    button.innerText = originalText;
+                }, 2000);
+            });
+        });
+    });
+
+    checklistItems.forEach(item => {
+        const checkbox = item.querySelector('input[type="checkbox"]');
+        checkbox.addEventListener('change', () => {
+            if (checkbox.checked) {
+                item.classList.add('checked');
+            } else {
+                item.classList.remove('checked');
+            }
+        });
+    });
+    
+    troubleshootItems.forEach(item => {
+        const button = item.querySelector('button');
+        const content = item.querySelector('.troubleshoot-content');
+        const icon = button.querySelector('svg');
+
+        button.addEventListener('click', () => {
+            const isHidden = content.classList.contains('hidden');
+            content.classList.toggle('hidden');
+            icon.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+        });
+    });
+
+    if (troubleshootSearch) {
+        troubleshootSearch.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            troubleshootItems.forEach(item => {
+                const titleElement = item.querySelector('button span');
+                if (titleElement) {
+                    const title = titleElement.innerText.toLowerCase();
+                    if (title.includes(searchTerm)) {
+                        item.style.display = 'block';
+                    } else {
+                        item.style.display = 'none';
+                    }
+                }
+            });
+        });
+    }
+    
+    const powerChartCanvas = document.getElementById('powerChart');
+    if (powerChartCanvas) {
+        const ctx = powerChartCanvas.getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['電源來源'],
+                datasets: [{
+                    label: 'PCIe 插槽',
+                    data: [75],
+                    backgroundColor: 'rgba(59, 130, 246, 0.7)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 1
+                }, {
+                    label: '8-pin 輔助電源',
+                    data: [150],
+                    backgroundColor: 'rgba(239, 68, 68, 0.7)',
+                    borderColor: 'rgba(239, 68, 68, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    title: {
+                        display: false,
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return `${context.dataset.label}: ${context.raw}W`;
+                            }
+                        }
+                    },
+                     legend: {
+                        position: 'bottom',
+                    }
+                },
+                scales: {
+                    x: {
+                        stacked: true,
+                        title: {
+                            display: true,
+                            text: '功耗 (W)'
+                        }
+                    },
+                    y: {
+                        stacked: true,
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+
+</body>
+</html>
