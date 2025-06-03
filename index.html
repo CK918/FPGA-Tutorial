@@ -290,6 +290,7 @@
                                     <li>在<strong class="font-semibold">標準安裝、日常操作或透過 `xbmgmt` 進行固件更新</strong>時，<strong class="font-semibold">不應連接</strong>此 USB 埠到主機。</li>
                                     <li><strong class="font-semibold text-red-600">注意：</strong>如「故障排除」章節所述，在某些情況下，開機時若此 USB 埠已連接，可能會干擾 PCIe 裝置的正常枚舉，導致卡無法被系統識別。</li>
                                     <li>僅當特定的官方恢復或除錯指南<strong class="font-semibold">明確指示</strong>需要使用此 USB 連接埠時（例如，透過 JTAG 進行底層燒錄），才應按照指示連接和使用。標準的固件更新流程不依賴此 USB 連接。</li>
+                                    <li>我個人的經驗是只有在連接Micro-USB到主機上形成loopback的情況下，才可以正常燒錄。</li>
                                 </ul>
                             </div>
                         </div>
@@ -455,7 +456,7 @@
 
             <section id="dev-case-study" class="content-section hidden space-y-6">
                 <h2 class="text-3xl font-bold text-slate-900 border-b pb-2">開發實戰案例：U200 網路應用筆記</h2>
-                <p class="text-lg">本章節節錄自一份 FPGA 開發進度報告，記錄了在 Alveo U200 上進行網路相關應用開發時遇到的實際問題與解決過程，希望能為其他開發者提供參考。</p>
+                <p class="text-lg">本章節記錄了在 Alveo U200 上進行網路相關應用開發時遇到的實際問題與解決過程，希望能為其他開發者提供參考。</p>
 
                 <div class="bg-white p-6 rounded-lg shadow-sm space-y-4">
                     <h3 class="text-xl font-bold">主題一：UDP 網路測試與校驗和問題</h3>
